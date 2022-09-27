@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'dart:async';
@@ -110,7 +112,6 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             TextButton(
               onPressed: () {
-                toServer.send('Close');
                 invertServerState();
                 if (serverOn == true) {
                   toServer.send('Open');
@@ -139,25 +140,22 @@ void requestHandle(SendPort toServer) async {
   */
 
   var server = await HttpServer.bind(InternetAddress.anyIPv6, 80);
+  server.close();
 //works but when closed server.forEach function doesn't restart.
   fromMain.listen((data) async {
-    print('[fromNarnia to Server] ' + data);
+//    print('[fromNarnia to Server] ' + data);
     if (data == "Close") {
       server.close();
       print("Server Closes");
     }
     if (data == "Open") {
       server = await HttpServer.bind(InternetAddress.anyIPv6, 80);
+
       print("Server Opens");
-      await server.forEach((HttpRequest request) {
+      await server.forEach((HttpRequest request) async {
         request.response.write('Server Says Hi');
         request.response.close();
       });
     }
   });
-}
-
-class ServerData {
-  var sendPort;
-  ServerData({this.sendPort});
 }
