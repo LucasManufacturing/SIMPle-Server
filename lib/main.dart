@@ -9,16 +9,18 @@ import 'dart:isolate';
 //toMain is a sendPort allowing server to send to messages to main
 
 void main() async {
-  runApp(const MyApp());
   SendPort toServer = await initServer();
+  runApp(MyApp(toServer: toServer));
   print('sentMsg');
   toServer.send('Hi This is Main, sending a String');
 }
 
+//==complicated fuckery regarding isolates and widgets kissing
 //Isolate Comms come from https://medium.com/@lelandzach/dart-isolate-2-way-communication-89e75d973f34
 //ReceivePorts can't be passed as arguments.
 //Thus create a receiveport in main and pass sendport to isolate
 //Then create a receiveport in isolate and send isolates send port through the send port back to main
+//pass the above sendPort through the widgets as arguments. (Main to myApp, myApp through to homePage, homePage through to state. )
 
 Future<SendPort> initServer() async {
   ReceivePort fromServer = ReceivePort();
@@ -39,30 +41,33 @@ Future<SendPort> initServer() async {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  var toServer;
+  MyApp({super.key, this.toServer});
   final int num1 = 123456789;
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Server Application',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: const MyHomePage(title: 'Main Screen'),
+      home: MyHomePage(title: 'Main Screen', toServer: toServer),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-  final int num2 = 123456789;
+  var toServer;
+  MyHomePage({super.key, required this.title, this.toServer});
   final String title;
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<MyHomePage> createState() => _MyHomePageState(toServer: toServer);
 }
 
 class _MyHomePageState extends State<MyHomePage> {
   bool serverOn = false;
+  var toServer;
 
+  _MyHomePageState({this.toServer});
   void invertServerState() {
     setState(() {
       //     print(serverOn);
@@ -105,8 +110,13 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             TextButton(
               onPressed: () {
+                toServer.send('Close');
                 invertServerState();
-                if (serverOn == true) {}
+                if (serverOn == true) {
+                  toServer.send('Open');
+                } else {
+                  toServer.send('Close');
+                }
               },
               child: Text("Change Server State"),
               style: ButtonStyle(
@@ -123,15 +133,27 @@ class _MyHomePageState extends State<MyHomePage> {
 void requestHandle(SendPort toServer) async {
   ReceivePort fromMain = ReceivePort();
   toServer.send(fromMain.sendPort);
-
+/* 
   String string = await fromMain.first;
   print('[fromMain to Isolate] $string');
-  //
+  */
 
   var server = await HttpServer.bind(InternetAddress.anyIPv6, 80);
-  await server.forEach((HttpRequest request) {
-    request.response.write('Server Says Hi');
-    request.response.close();
+//works but when closed server.forEach function doesn't restart.
+  fromMain.listen((data) async {
+    print('[fromNarnia to Server] ' + data);
+    if (data == "Close") {
+      server.close();
+      print("Server Closes");
+    }
+    if (data == "Open") {
+      server = await HttpServer.bind(InternetAddress.anyIPv6, 80);
+      print("Server Opens");
+      await server.forEach((HttpRequest request) {
+        request.response.write('Server Says Hi');
+        request.response.close();
+      });
+    }
   });
 }
 
