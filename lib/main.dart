@@ -153,6 +153,8 @@ void requestHandle(SendPort toServer) async {
 
       print("Server Opens");
       await server.forEach((HttpRequest request) async {
+        String content = await utf8.decoder.bind(request).join();
+        print("Content: " + content);
         request.response.write('Server Says Hi');
         request.response.close();
       });
