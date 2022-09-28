@@ -72,9 +72,7 @@ class _MyHomePageState extends State<MyHomePage> {
   _MyHomePageState({this.toServer});
   void invertServerState() {
     setState(() {
-      //     print(serverOn);
       serverOn = !serverOn;
-      //    print(serverOn);
     });
   }
 
@@ -140,7 +138,7 @@ void requestHandle(SendPort toServer) async {
   */
 
   var server = await HttpServer.bind(InternetAddress.anyIPv6, 80);
-  server.close();
+  server.close(); //intialize server then close
 //works but when closed server.forEach function doesn't restart.
   fromMain.listen((data) async {
 //    print('[fromNarnia to Server] ' + data);
@@ -149,14 +147,18 @@ void requestHandle(SendPort toServer) async {
       print("Server Closes");
     }
     if (data == "Open") {
+      //server only listening if data is open
       server = await HttpServer.bind(InternetAddress.anyIPv6, 80);
 
       print("Server Opens");
       await server.forEach((HttpRequest request) async {
-        String content = await utf8.decoder.bind(request).join();
+        String content = await utf8.decoder
+            .bind(request)
+            .join(); //do all request work before responding otherwise it gets erased.
         print("Content: " + content);
         request.response.write('Server Says Hi');
-        request.response.close();
+        request.response
+            .close(); //be sure to close otherwise client will wait for more.
       });
     }
   });
